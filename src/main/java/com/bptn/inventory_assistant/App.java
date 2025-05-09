@@ -1,17 +1,236 @@
 package com.bptn.inventory_assistant;
 
+import com.bptn.inventory_assistant.exception.InsufficientStockException;
+import com.bptn.inventory_assistant.exception.ProductNotFoundException;
+import com.bptn.inventory_assistant.model.*;
+import com.bptn.inventory_assistant.service.InventoryService;
+import com.bptn.inventory_assistant.util.IdGenerator;
+import com.bptn.inventory_assistant.util.InputUtil;
 
-public class App
-{
-    public static void main( String[] args )
-    {
-    	Inventory inventory = new Inventory();
-    	
-    	inventory.addProduct(new Product("Pen", 1.5, 50));
-        inventory.addProduct(new Product("Notebook", 3.0, 30));
-        inventory.addProduct(new Product("Eraser", 0.5, 100));
-        
-        inventory.showProducts();
-    	
-    }
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+public class App {
+
+	private static InventoryService inventoryService = new InventoryService();
+
+	public static void main(String[] args) {
+		System.out.println("Welcome to Smart Inventory Assistant!");
+
+		initializeData(); // Add some sample data
+
+		boolean running = true;
+		while (running) {
+			printMenu();
+			int choice = InputUtil.getInt("Enter your choice: ");
+			try {
+				switch (choice) {
+				case 1 -> addProduct();
+				case 2 -> viewAllProducts();
+				case 3 -> recordSale();
+				case 4 -> restockProduct();
+				case 5 -> updateProductPrice();
+				case 6 -> viewSalesHistory();
+//				case 7 -> generateAISalesSummary();
+//				case 8 -> generateAIPromoTagline();
+				case 0 -> {
+					running = false;
+					System.out.println("Exiting system. Goodbye!");
+				}
+				default -> System.out.println("Invalid choice. Please try again.");
+				}
+
+			} catch (ProductNotFoundException | InsufficientStockException | DateTimeParseException e) {
+
+				System.err.println("Error: " + e.getMessage());
+
+			} catch (Exception e) {
+				System.err.println("An unexpected error occurred: " + e.getMessage());
+				// e.printStackTrace(); // For debugging
+			}
+
+		}
+		InputUtil.closeScanner();
+
+	}
+
+//	private static Object generateAIPromoTagline() {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	private static Object generateAISalesSummary() {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+
+	private static void viewSalesHistory() {
+		System.out.println("\n--- Sales History ---");
+		List<SaleRecord> sales = inventoryService.getSalesHistory();
+		if (sales.isEmpty()) {
+			System.out.println("No sales recorded yet.");
+			return;
+		}
+		sales.forEach(System.out::println);
+	}
+
+	private static void updateProductPrice() throws ProductNotFoundException {
+		System.out.println("\n--- Update Product Price ---");
+		String productId = InputUtil.getString("Enter Product ID to update price: ");
+		inventoryService.findProductById(productId)
+				.orElseThrow(() -> new ProductNotFoundException("Product ID " + productId + " not found.")); // Check
+																												// existence
+
+		double newPrice = InputUtil.getDouble("Enter new selling price: ");
+		if (newPrice < 0) {
+			System.out.println("Price cannot be negative.");
+			return;
+		}
+		inventoryService.updateProductPrice(productId, newPrice);
+	}
+
+	private static void restockProduct() throws ProductNotFoundException {
+		System.out.println("\n--- Restock Product ---");
+		String productId = InputUtil.getString("Enter Product ID to restock: ");
+		int quantity = InputUtil.getInt("Enter quantity to add: ");
+		if (quantity <= 0) {
+			System.out.println("Restock quantity must be positive.");
+			return;
+		}
+		inventoryService.restockProduct(productId, quantity);
+	}
+
+	private static void recordSale() throws ProductNotFoundException, InsufficientStockException {
+
+		System.out.println("\n--- Record Sale ---");
+		Map<String, Integer> itemsToSell = new HashMap<>();
+
+		boolean addMoreItems = true;
+
+		while (addMoreItems) {
+
+			String productId = InputUtil.getString("Enter Product ID to sell (or 'done' to finish): ");
+			if (productId.equalsIgnoreCase("done")) {
+				addMoreItems = false;
+				continue;
+			}
+
+			Optional<Product> productOpt = inventoryService.findProductById(productId);
+			if (productOpt.isEmpty()) {
+				System.out.println("Product ID not found. Please try again.");
+				continue;
+			}
+
+			System.out.println("Selected: " + productOpt.get().getName() + " (Stock: "
+					+ productOpt.get().getQuantityInStock() + ")");
+
+			int quantity = InputUtil.getInt("Enter quantity to sell: ");
+			if (quantity <= 0) {
+				System.out.println("Quantity must be positive.");
+				continue;
+			}
+
+			itemsToSell.put(productId, itemsToSell.getOrDefault(productId, 0) + quantity);
+			System.out.println(productOpt.get().getName() + " x" + quantity + " added to cart.");
+
+		}
+
+		if (itemsToSell.isEmpty()) {
+			System.out.println("No items selected for sale. Sale cancelled.");
+			return;
+		}
+
+		inventoryService.recordSale(itemsToSell);
+
+	}
+
+	private static void viewAllProducts() {
+
+		System.out.println("\n--- All Products in Inventory ---");
+		List<Product> products = inventoryService.getAllProducts();
+		if (products.isEmpty()) {
+			System.out.println("No products in inventory.");
+			return;
+		}
+
+		products.forEach(System.out::println);
+
+	}
+
+	private static void addProduct() {
+		System.out.println("\n--- Add New Product ---");
+		String name = InputUtil.getString("Enter product name: ");
+		System.out.println("Select Category:");
+		ProductCategory[] categories = ProductCategory.values();
+		for (int i = 0; i < categories.length; i++) {
+			System.out.println((i + 1) + ". " + categories[i]);
+		}
+
+		int catChoice = InputUtil.getInt("Category choice: ") - 1;
+		ProductCategory category = categories[catChoice];
+
+		double purchasePrice = InputUtil.getDouble("Enter purchase price: ");
+		double sellingPrice = InputUtil.getDouble("Enter selling price: ");
+		int quantity = InputUtil.getInt("Enter initial quantity: ");
+		String supplier = InputUtil.getString("Enter supplier name: ");
+		String productId = IdGenerator.generateProductId();
+
+		System.out.println("Is this a special type of product? (1. Regular, 2. Perishable, 3. Electronics)");
+		int typeChoice = InputUtil.getInt("Type choice: ");
+
+		Product newProduct;
+
+		if (typeChoice == 2) { // Perishable
+			LocalDate expiryDate = InputUtil.getDate("Enter expiry date (YYYY-MM-DD): ");
+			newProduct = new PerishableProduct(productId, name, category, purchasePrice, sellingPrice, quantity,
+					supplier, expiryDate);
+		} else if (typeChoice == 3) { // Electronics
+			String serialNumber = InputUtil.getString("Enter serial number (optional, press Enter to skip): ");
+			int warrantyMonths = InputUtil.getInt("Enter warranty period in months (0 if none): ");
+			newProduct = new ElectronicsProduct(productId, name, category, purchasePrice, sellingPrice, quantity,
+					supplier, serialNumber.isEmpty() ? null : serialNumber, warrantyMonths);
+		} else { // Regular
+			newProduct = new Product(productId, name, category, purchasePrice, sellingPrice, quantity, supplier);
+		}
+		inventoryService.addProduct(newProduct);
+	}
+
+	private static void printMenu() {
+		System.out.println("\n--- Smart Inventory Assistant Menu ---");
+		System.out.println("1. Add New Product");
+		System.out.println("2. View All Products");
+		System.out.println("3. Record Sale");
+		System.out.println("4. Restock Product");
+		System.out.println("5. Update Product Price");
+		System.out.println("6. View Sales History");
+		System.out.println("7. AI: Generate Sales Summary & Forecast");
+		System.out.println("8. AI: Generate Promotional Tagline for a Product");
+		System.out.println("0. Exit");
+
+	}
+
+	private static void initializeData() {
+
+		System.out.println("\n=========================================");
+		System.out.println("🚀 Initializing Sample Inventory Data...");
+		System.out.println("=========================================");
+
+		inventoryService.addProduct(new Product(IdGenerator.generateProductId(), "Laptop X200",
+				ProductCategory.ELECTRONICS, 800, 1200, 10, "TechSupplier Inc."));
+		inventoryService.addProduct(new PerishableProduct(IdGenerator.generateProductId(), "Organic Apples",
+				ProductCategory.GROCERIES, 1, 2.5, 50, "FarmFresh Co.", LocalDate.now().plusDays(14)));
+		inventoryService.addProduct(new Product(IdGenerator.generateProductId(), "Java Programming Book",
+				ProductCategory.BOOKS, 20, 45, 25, "EduPublishers"));
+		inventoryService.addProduct(new ElectronicsProduct(IdGenerator.generateProductId(), "Smart Watch Z",
+				ProductCategory.ELECTRONICS, 150, 250, 15, "GadgetGlobal", "SN-SWZ-001", 12));
+
+		System.out.println("=========================================");
+		System.out.println("✅ Sample Data Initialization Complete!");
+		System.out.println("=========================================\n");
+
+	}
 }
