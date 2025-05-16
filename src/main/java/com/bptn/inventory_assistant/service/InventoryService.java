@@ -8,7 +8,7 @@ import com.bptn.inventory_assistant.util.IdGenerator;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
+//import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,15 +42,21 @@ public class InventoryService {
 
 	public void addProduct(Product product) {
 
-		// Optional: Check for duplicate ID if not strictly enforced by IdGenerator
+		if (product.getName() == null || product.getName().isBlank() || product.getSupplier() == null
+				|| product.getSupplier().isBlank()) {
+			System.out.println("Error: Product name and supplier cannot be empty. Product not added.");
+			return;
+		}
+
 		if (products.stream().anyMatch(p -> p.getProductId().equals(product.getProductId()))) {
-			System.err.println("Warning: Product with ID " + product.getProductId() + " already exists. Product '"
+			System.out.println("Warning: Product with ID " + product.getProductId() + " already exists. Product '"
 					+ product.getName() + "' not added again.");
 			return;
 		}
 
 		products.add(product);
-		System.out.println("Product added: " + product.getName());
+		System.out.printf("Product added: %s (ID: %s, Stock: %d)%n", product.getName(), product.getProductId(),
+				product.getQuantityInStock());
 	}
 
 	/**
@@ -100,8 +106,8 @@ public class InventoryService {
 	public SaleRecord recordSale(Map<String, Integer> itemsToSell)
 			throws ProductNotFoundException, InsufficientStockException {
 
-		SaleRecord saleRecord = new SaleRecord(IdGenerator.generateSaleId(), LocalDate.now());
-		Map<Product, Integer> validatedProductsForSale = new HashMap<>();
+		SaleRecord sale = new SaleRecord(IdGenerator.generateSaleId(), LocalDate.now());
+//		Map<Product, Integer> validatedProductsForSale = new HashMap<>();
 
 		// First pass: validate all items and quantities
 		for (Map.Entry<String, Integer> entry : itemsToSell.entrySet()) {
@@ -109,9 +115,9 @@ public class InventoryService {
 			int quantityToSell = entry.getValue();
 
 			if (quantityToSell <= 0) {
-				// Or throw an IllegalArgumentException
-				System.err.println("Warning: Invalid quantity " + quantityToSell + " for product ID " + productId
-						+ ". Skipping item.");
+
+				System.out.printf("Warning: Invalid quantity %d for product %s. Skipping.%n", quantityToSell,
+						productId);
 				continue;
 			}
 
@@ -122,28 +128,31 @@ public class InventoryService {
 				throw new InsufficientStockException("Insufficient stock for " + product.getName() + ". Available: "
 						+ product.getQuantityInStock() + ", Requested: " + quantityToSell);
 			}
-			validatedProductsForSale.put(product, quantityToSell);
+
+			product.decreaseStock(quantityToSell);
+			sale.addItem(product, quantityToSell, product.getSellingPrice());
+//			validatedProductsForSale.put(product, quantityToSell);
 		}
 
-		if (validatedProductsForSale.isEmpty()) {
+		if (sale.getItemsSold().isEmpty()) {
 			System.out.println("No valid items to sell. Sale cancelled.");
 			return null;
 		}
 
-		// Second pass: process the sale if all validations passed
-		for (Map.Entry<Product, Integer> entry : validatedProductsForSale.entrySet()) {
-			Product product = entry.getKey();
-			int quantitySold = entry.getValue();
+//		// Second pass: process the sale if all validations passed
+//		for (Map.Entry<Product, Integer> entry : validatedProductsForSale.entrySet()) {
+//			Product product = entry.getKey();
+//			int quantitySold = entry.getValue();
+//
+//			product.decreaseStock(quantitySold);
+//			saleRecord.addItem(product, quantitySold, product.getSellingPrice());
+//		}
 
-			product.decreaseStock(quantitySold);
-			saleRecord.addItem(product, quantitySold, product.getSellingPrice());
-		}
-
-		salesHistory.add(saleRecord);
+		salesHistory.add(sale);
 		System.out.println("\nSale recorded successfully.");
-		System.out.println(saleRecord); // Print sale details
+		System.out.println(sale); // Print sale details
 
-		return saleRecord;
+		return sale;
 	}
 
 	/**
@@ -157,15 +166,15 @@ public class InventoryService {
 	public void restockProduct(String productId, int quantity) throws ProductNotFoundException {
 
 		if (quantity <= 0) {
-			System.err.println("Restock quantity must be positive. Product ID: " + productId);
+			System.out.println("Restock quantity must be positive. Product ID: " + productId);
 			return;
 		}
 
 		Product product = findProductById(productId).orElseThrow(
 				() -> new ProductNotFoundException("Product with ID " + productId + " not found for restocking."));
 		product.increaseStock(quantity);
-		System.out.println(
-				"Restocked " + product.getName() + " by " + quantity + ". New stock: " + product.getQuantityInStock());
+		System.out.printf("Restocked %s by %d. New stock: %d%n", product.getName(), quantity,
+				product.getQuantityInStock());
 	}
 
 	/**
@@ -179,14 +188,21 @@ public class InventoryService {
 	public void updateProductPrice(String productId, double newSellingPrice) throws ProductNotFoundException {
 
 		if (newSellingPrice < 0) {
-			System.err.println("Selling price cannot be negative. Product ID: " + productId);
-			return; // Or throw IllegalArgumentException
+			System.out.println("Selling price cannot be negative. Product ID: " + productId);
+			return;
 		}
-		
+
 		Product product = findProductById(productId).orElseThrow(
 				() -> new ProductNotFoundException("Product with ID " + productId + " not found for price update."));
 		product.setSellingPrice(newSellingPrice);
-		System.out.println("Price for " + product.getName() + " updated to $" + newSellingPrice);
+		System.out.printf("Price for %s updated to $%.2f%n", product.getName(), newSellingPrice);
+	}
+
+	public void deleteProduct(String productId) throws ProductNotFoundException {
+		Product p = findProductById(productId)
+				.orElseThrow(() -> new ProductNotFoundException("Product ID " + productId + " not found. "));
+		products.remove(p);
+		System.out.printf("Product deleted: %s (ID: %s)%n ", p.getName(), p.getProductId());
 	}
 
 }

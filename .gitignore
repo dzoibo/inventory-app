@@ -16,3 +16,6 @@ buildNumber.properties
 .classpath
 # Eclipse settings
 .settings/
+
+# Environment variables and local configuration
+.env

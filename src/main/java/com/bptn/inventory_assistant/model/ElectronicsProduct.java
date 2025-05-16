@@ -31,7 +31,7 @@ public class ElectronicsProduct extends Product {
 		super(productId, name, category, purchasePrice, sellingPrice, quantityInStock, supplier);
 
 		if (category != ProductCategory.ELECTRONICS) {
-			System.err.println("Warning: Electronics Product created with non-ELECTRONICS category: " + category);
+			System.out.println("Warning: Electronics Product created with non-ELECTRONICS category: " + category);
 		}
 
 		this.serialNumber = serialNumber;
