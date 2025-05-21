@@ -1,5 +1,7 @@
 package com.bptn.inventory_assistant.model;
 
+import static com.bptn.inventory_assistant.util.Util.printWarning;
+
 /**
  * Represents an electronics product, a specialized type of Product. It includes
  * properties like serial number and warranty period.
@@ -31,7 +33,7 @@ public class ElectronicsProduct extends Product {
 		super(productId, name, category, purchasePrice, sellingPrice, quantityInStock, supplier);
 
 		if (category != ProductCategory.ELECTRONICS) {
-			System.out.println("Warning: Electronics Product created with non-ELECTRONICS category: " + category);
+			printWarning("Warning: Electronics Product created with non-ELECTRONICS category: " + category);
 		}
 
 		this.serialNumber = serialNumber;

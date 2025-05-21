@@ -6,9 +6,12 @@ import com.bptn.inventory_assistant.model.Product;
 import com.bptn.inventory_assistant.model.SaleRecord;
 import com.bptn.inventory_assistant.util.IdGenerator;
 
+import static com.bptn.inventory_assistant.util.Util.printWarning;
+import static com.bptn.inventory_assistant.util.Util.printSuccess;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
-//import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,19 +47,21 @@ public class InventoryService {
 
 		if (product.getName() == null || product.getName().isBlank() || product.getSupplier() == null
 				|| product.getSupplier().isBlank()) {
-			System.out.println("Error: Product name and supplier cannot be empty. Product not added.");
+			printWarning("Error: Product name and supplier cannot be empty. Product not added.");
 			return;
 		}
 
 		if (products.stream().anyMatch(p -> p.getProductId().equals(product.getProductId()))) {
-			System.out.println("Warning: Product with ID " + product.getProductId() + " already exists. Product '"
+			printWarning("Warning: Product with ID " + product.getProductId() + " already exists. Product '"
 					+ product.getName() + "' not added again.");
 			return;
 		}
 
 		products.add(product);
-		System.out.printf("Product added: %s (ID: %s, Stock: %d)%n", product.getName(), product.getProductId(),
-				product.getQuantityInStock());
+
+		printSuccess(String.format("Product added: %s (ID: %s, Stock: %d)", product.getName(), product.getProductId(),
+				product.getQuantityInStock()));
+
 	}
 
 	/**
@@ -107,17 +112,15 @@ public class InventoryService {
 			throws ProductNotFoundException, InsufficientStockException {
 
 		SaleRecord sale = new SaleRecord(IdGenerator.generateSaleId(), LocalDate.now());
-//		Map<Product, Integer> validatedProductsForSale = new HashMap<>();
 
-		// First pass: validate all items and quantities
 		for (Map.Entry<String, Integer> entry : itemsToSell.entrySet()) {
 			String productId = entry.getKey();
 			int quantityToSell = entry.getValue();
 
 			if (quantityToSell <= 0) {
 
-				System.out.printf("Warning: Invalid quantity %d for product %s. Skipping.%n", quantityToSell,
-						productId);
+				printWarning(
+						"Warning: Invalid quantity " + quantityToSell + " for product " + productId + ". Skipping.");
 				continue;
 			}
 
@@ -131,26 +134,15 @@ public class InventoryService {
 
 			product.decreaseStock(quantityToSell);
 			sale.addItem(product, quantityToSell, product.getSellingPrice());
-//			validatedProductsForSale.put(product, quantityToSell);
 		}
 
 		if (sale.getItemsSold().isEmpty()) {
-			System.out.println("No valid items to sell. Sale cancelled.");
+			printWarning("No valid items to sell. Sale cancelled.");
 			return null;
 		}
 
-//		// Second pass: process the sale if all validations passed
-//		for (Map.Entry<Product, Integer> entry : validatedProductsForSale.entrySet()) {
-//			Product product = entry.getKey();
-//			int quantitySold = entry.getValue();
-//
-//			product.decreaseStock(quantitySold);
-//			saleRecord.addItem(product, quantitySold, product.getSellingPrice());
-//		}
-
 		salesHistory.add(sale);
-		System.out.println("\nSale recorded successfully.");
-		System.out.println(sale); // Print sale details
+		printSuccess("\nSale recorded successfully.", sale.toString());
 
 		return sale;
 	}
@@ -166,7 +158,7 @@ public class InventoryService {
 	public void restockProduct(String productId, int quantity) throws ProductNotFoundException {
 
 		if (quantity <= 0) {
-			System.out.println("Restock quantity must be positive. Product ID: " + productId);
+			printWarning("Restock quantity must be positive. Product ID: " + productId);
 			return;
 		}
 
@@ -188,7 +180,7 @@ public class InventoryService {
 	public void updateProductPrice(String productId, double newSellingPrice) throws ProductNotFoundException {
 
 		if (newSellingPrice < 0) {
-			System.out.println("Selling price cannot be negative. Product ID: " + productId);
+			printWarning("Selling price cannot be negative. Product ID: " + productId);
 			return;
 		}
 

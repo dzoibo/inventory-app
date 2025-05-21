@@ -4,13 +4,18 @@ import java.util.List;
 
 import com.bptn.inventory_assistant.model.Product;
 import com.bptn.inventory_assistant.model.SaleRecord;
+
+import static com.bptn.inventory_assistant.util.Util.printWarning;
+
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.errors.PermissionDeniedException;
 import com.openai.errors.UnauthorizedException;
 import com.openai.models.ChatModel;
-//import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
+
+
+
 
 import io.github.cdimascio.dotenv.Dotenv;
 
@@ -41,7 +46,7 @@ public class OpenAIService {
 	public void generateSalesSummary(List<SaleRecord> salesHistory) {
 
 		if (!isAIAvailable()) {
-			System.out.println("AI is not available. Please check your API key.");
+			printWarning("AI is not available. Please check your API key.");
 			return;
 		}
 
@@ -82,7 +87,7 @@ public class OpenAIService {
 	public void generatePromoTagline(Product product) {
 
 		if (!isAIAvailable()) {
-			System.out.println("AI is not available. Please check your API key.");
+			printWarning("AI is not available. Please check your API key.");
 			return;
 		}
 
@@ -110,17 +115,5 @@ public class OpenAIService {
 		}
 	}
 
-	private void printWarning(String... messages) {
-		final String RED = "\u001B[31m";
-		final String RESET = "\u001B[0m";
-
-		System.out.println(RED + "*****************************************************************");
-		for (String message : messages) {
-			System.out.println(message);
-			System.out.flush();
-		}
-		System.out.println("*****************************************************************" + RESET);
-
-	}
 
 }
