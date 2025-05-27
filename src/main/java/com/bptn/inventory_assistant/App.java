@@ -21,8 +21,6 @@ public class App {
 
 	private static InventoryService inventoryService = new InventoryService();
 	private static OpenAIService openAIService;
-	
-	
 
 	private static void printMenu() {
 		System.out.println("\n--- Smart Inventory Assistant Menu ---");
@@ -144,14 +142,27 @@ public class App {
 		products.forEach(System.out::println);
 	}
 
+	private static void viewAllProductSummaries() {
+		printSuccess("\n--- Product List (ID and Name) ---");
+		List<Product> products = inventoryService.getAllProducts();
+		if (products.isEmpty()) {
+			printWarning("No products in inventory.");
+			return;
+		}
+		
+		// Display only ID and Name for each product
+		products.forEach(
+				product -> System.out.println("ID: " + product.getProductId() + ", Name: " + product.getName()));
+	}
+
 	private static void recordSale() throws ProductNotFoundException, InsufficientStockException {
 
 		System.out.println("\n--- Record Sale ---");
 		Map<String, Integer> itemsToSell = new HashMap<>();
 
 		while (true) {
-
-			String productId = Util.getNonEmptyString("Enter Product ID to sell (or 'done' to finish): ");
+			viewAllProductSummaries();
+			String productId = Util.getNonEmptyString("\nEnter Product ID to sell (or 'done' to finish): ");
 			if (productId.equalsIgnoreCase("done")) {
 				break;
 			}
