@@ -197,4 +197,14 @@ public class InventoryService {
 		System.out.printf("Product deleted: %s (ID: %s)%n ", p.getName(), p.getProductId());
 	}
 
+	// Method used to find a sale record by its ID. Returns an Optional<SaleRecord> which will be empty if no sale is found with the given ID.	
+		public Optional<SaleRecord> findSaleById(String saleId) {
+			for (SaleRecord s : salesHistory) {
+				if (s.getSaleId().equalsIgnoreCase(saleId)) {
+					return Optional.of(s);
+				}
+			}
+			return Optional.empty();
+		}
+
 }

@@ -16,7 +16,7 @@ public class IdGenerator {
 
 	private static AtomicInteger productCounter = new AtomicInteger(1000);
 	private static AtomicInteger saleCounter = new AtomicInteger(5000);
-
+	private static AtomicInteger returnCounter = new AtomicInteger(2000);
 	public static String generateProductId() {
 		// More robust might involve a prefix + counter or UUID
 		return "PROD-" + productCounter.getAndIncrement();
@@ -31,5 +31,11 @@ public class IdGenerator {
 		return UUID.randomUUID().toString();
 
 	}
+	
+	public static String generateReturnId(){
+		//Implemented following the same pattern as product and sale ID generation for consistency
+		return "RET-"+returnCounter.getAndIncrement();
+	}
+	
 
 }
