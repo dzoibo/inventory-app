@@ -149,7 +149,7 @@ public class App {
 			printWarning("No products in inventory.");
 			return;
 		}
-		
+
 		// Display only ID and Name for each product
 		products.forEach(
 				product -> System.out.println("ID: " + product.getProductId() + ", Name: " + product.getName()));
