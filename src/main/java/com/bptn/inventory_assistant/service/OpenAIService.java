@@ -1,4 +1,6 @@
 package com.bptn.inventory_assistant.service;
+import com.bptn.inventory_assistant.model.ReturnReason;
+import java.util.Arrays;
 
 import java.util.List;
 
@@ -86,6 +88,38 @@ public class OpenAIService {
 		} catch (RuntimeException e) {
 			printWarning("Unexpected error while calling OpenAI API:", e.getMessage(), "AI features will be disabled.");
 			this.client = null;
+		}
+	}
+	
+	public ReturnReason classifyReturnReason(String reasonText) {
+
+		if (!isAIAvailable()) {
+			return ReturnReason.OTHER;
+		}
+
+		try {
+			String prompt = "Classify this product return reason. Answer with exactly one word from this list: "
+					+ Arrays.toString(ReturnReason.values())
+					+ "\nReason: " + reasonText;
+
+			ResponseCreateParams params = ResponseCreateParams.builder().input(prompt).model(this.chatModel).build();
+
+			// Collect the AI's answer into one string (same chain as the other AI methods)
+			StringBuilder answer = new StringBuilder();
+			client.responses().create(params).output().stream().flatMap(item -> item.message().stream())
+					.flatMap(message -> message.content().stream()).flatMap(content -> content.outputText().stream())
+					.forEach(outputText -> answer.append(outputText.text()));
+
+			// Keep only letters and _ (removes spaces, dots, quotes), then convert to the enum
+			String word = answer.toString().toUpperCase().replaceAll("[^A-Z_]", "");
+			return ReturnReason.valueOf(word);
+
+		} catch (IllegalArgumentException e) {
+			// The AI answered something that is not in the enum
+			return ReturnReason.OTHER;
+		} catch (RuntimeException e) {
+			printWarning("AI could not classify the reason: " + e.getMessage());
+			return ReturnReason.OTHER;
 		}
 	}
 

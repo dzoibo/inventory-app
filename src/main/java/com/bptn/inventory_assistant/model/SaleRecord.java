@@ -2,6 +2,7 @@ package com.bptn.inventory_assistant.model;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.List;
 import java.util.ArrayList;
 
 /**

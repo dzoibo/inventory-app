@@ -1,5 +1,8 @@
 package com.bptn.inventory_assistant;
 
+import com.bptn.inventory_assistant.exception.ReturnNotAllowedException;
+import com.bptn.inventory_assistant.exception.SaleNotFoundException;
+import com.bptn.inventory_assistant.service.ReturnService;
 import com.bptn.inventory_assistant.exception.InsufficientStockException;
 import com.bptn.inventory_assistant.exception.ProductNotFoundException;
 import com.bptn.inventory_assistant.model.*;
@@ -20,6 +23,7 @@ import java.util.Optional;
 public class App {
 
 	private static InventoryService inventoryService = new InventoryService();
+	private static ReturnService returnService = new ReturnService(inventoryService);
 	private static OpenAIService openAIService;
 
 	private static void printMenu() {
@@ -31,15 +35,18 @@ public class App {
 		System.out.println("5. Update Product Price");
 		System.out.println("6. View Sales History");
 		System.out.println("7. Delete Product");
+		System.out.println("8. Process Return");
+		System.out.println("9. View Returns");
 		if (openAIService.isAIAvailable()) {
-			System.out.println("8. AI: Generate Sales Summary & Forecast");
-			System.out.println("9. AI: Generate Promotional Tagline for a Product");
+			System.out.println("10. AI: Generate Sales Summary & Forecast");
+			System.out.println("11. AI: Generate Promotional Tagline for a Product");
 		}
 		System.out.println("0. Exit");
-
 	}
 
 	public static void main(String[] args) {
+		
+		
 
 		openAIService = new OpenAIService();
 
@@ -51,10 +58,10 @@ public class App {
 		while (running) {
 			printMenu();
 
-			int maxOption = openAIService.isAIAvailable() ? 9 : 7;
+			int maxOption = openAIService.isAIAvailable() ? 11 : 9;
 
 			int choice = Util.getIntInRange("Enter your choice: ", 0, maxOption);
-			if (!openAIService.isAIAvailable() && (choice == 8 || choice == 9)) {
+			if (!openAIService.isAIAvailable() && (choice == 10 || choice == 11)) { // we update the max options
 				printWarning("Invalid choice. Please try again.");
 				continue;
 			}
@@ -68,8 +75,10 @@ public class App {
 				case 5 -> updateProductPrice();
 				case 6 -> viewSalesHistory();
 				case 7 -> deleteProduct();
-				case 8 -> generateAISalesSummary();
-				case 9 -> generateAIPromoTagline();
+				case 8 -> processReturn();
+				case 9 -> viewReturns();
+				case 10 -> generateAISalesSummary();
+				case 11 -> generateAIPromoTagline();
 				case 0 -> {
 					running = false;
 					System.out.println("Exiting system. Goodbye!");
@@ -77,7 +86,7 @@ public class App {
 				default -> printWarning("Invalid choice. Please try again.");
 				}
 
-			} catch (ProductNotFoundException | InsufficientStockException | DateTimeParseException e) {
+			} catch (ProductNotFoundException | InsufficientStockException | DateTimeParseException	| SaleNotFoundException | ReturnNotAllowedException e) {
 
 				printWarning("Error: " + e.getMessage());
 
@@ -207,7 +216,7 @@ public class App {
 		int quantity = Util.getIntInRange("Enter quantity to add: ", 1, Integer.MAX_VALUE);
 		inventoryService.restockProduct(productId, quantity);
 	}
-
+	
 	private static void updateProductPrice() throws ProductNotFoundException {
 		System.out.println("\n--- Update Product Price ---");
 		String productId = Util.getString("Enter Product ID to update price: ");
@@ -246,6 +255,52 @@ public class App {
 		} catch (ProductNotFoundException e) {
 			printWarning("Error: " + e.getMessage());
 		}
+	}
+	
+	// this function has thow because the service layer can throw exceptions if the sale or product is not found, or if the return is not allowed
+	private static void processReturn()
+			throws SaleNotFoundException, ReturnNotAllowedException, ProductNotFoundException {
+		System.out.println("\n--- Process Return ---");
+
+		// Show past sales so the user can copy a Sale ID
+		viewSalesHistory();
+
+		String saleId = Util.getNonEmptyString("Enter Sale ID: ");
+		String productId = Util.getNonEmptyString("Enter Product ID to return: ");
+		int quantity = Util.getIntInRange("Enter quantity to return: ", 1, Integer.MAX_VALUE);
+
+		// Free text from the customer, e.g. "the screen was cracked when I opened it"
+		String reasonText = Util.getNonEmptyString("Why is the customer returning it? ");
+
+		// AI step: turn the free text into one ReturnReason (OTHER if AI is unavailable)
+		ReturnReason reason = openAIService.classifyReturnReason(reasonText);
+		printSuccess("AI category: " + reason);
+
+		// Business rules live in the service. If a rule fails, it throws
+		// and nothing below this line runs.
+		ReturnRecord record = returnService.processReturn(saleId, productId, quantity, reasonText, reason);
+		printSuccess("Return accepted.", record.toString());
+	}
+
+	/**
+	 * Menu option 9: lists every accepted return and the total amount refunded.
+	 */
+	private static void viewReturns() {
+		printSuccess("\n--- Returns History ---");
+
+		// The service gives back a copy, so the menu can't modify the real list
+		List<ReturnRecord> returns = returnService.getReturnsHistory();
+		if (returns.isEmpty()) {
+			printWarning("No returns yet.");
+			return; // nothing more to show
+		}
+
+		double totalRefunded = 0;
+		for (ReturnRecord r : returns) {
+			System.out.println(r); // uses ReturnRecord.toString()
+			totalRefunded += r.getRefundAmount();
+		}
+		printSuccess(String.format("Total refunded: $%.2f", totalRefunded));
 	}
 
 	private static void generateAIPromoTagline() {
